@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiMenu, FiX, FiArrowRight, FiUser, FiLogOut, FiHome } from 'react-icons/fi';
 import { useAuth0 } from '@auth0/auth0-react';
-import { FeaturesModal, PricingModal, ResourcesModal } from './modals/NavModals';
+import FeaturesModal from './modals/FeaturesModal';
+import PricingModal from './modals/PlanManagementModal';
+import ResourcesModal from './modals/ResourcesModal';
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -276,7 +278,7 @@ const Navbar = () => {
 
       {/* Modals */}
       {activeModal === 'features' && <FeaturesModal onClose={closeModal} />}
-      {activeModal === 'pricing' && <PricingModal onClose={closeModal} />}
+      {activeModal === 'pricing' && <PricingModal onClose={closeModal} userEmail={user?.email}/>}
       {activeModal === 'resources' && <ResourcesModal onClose={closeModal} />}
     </>
   );

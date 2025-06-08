@@ -24,9 +24,10 @@ const InterviewAccess = () => {
       });
 
       if (response.data.success) {
+        // Store the token in localStorage with the interview link as key
+        localStorage.setItem(`interviewToken-${interviewLink}`, accessToken);
         navigate(`/interview/${interviewLink}/permission`);
       } else {
-        // Check if this is a timing error
         if (response.data.interviewDetails) {
           setTimeDetails(response.data.interviewDetails);
           setShowTimeModal(true);

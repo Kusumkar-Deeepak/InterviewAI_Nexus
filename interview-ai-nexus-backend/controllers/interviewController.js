@@ -1,8 +1,8 @@
 import Interview from '../models/Interview.js';
+import UserPlan from '../models/UserPlan.js'; // Import the UserPlan model
 import { nanoid } from 'nanoid';
 import { BASE_URL } from '../config/constants.js';
 
-// controllers/interviewController.js
 export const createInterview = async (req, res) => {
   try {
     const requiredFields = [
@@ -15,7 +15,9 @@ export const createInterview = async (req, res) => {
       'startTime', 
       'endTime', 
       'email',
-      'userId'  // Add userId to required fields
+      'userId',
+      'interviewType',
+      'skills'
     ];
     
     // Validate required fields
@@ -27,13 +29,21 @@ export const createInterview = async (req, res) => {
       });
     }
 
-    // Check interview limit
-    const interviewCount = await Interview.countDocuments({ creatorEmail: req.body.email });
-    if (interviewCount >= 3) {
-      return res.status(400).json({
-        success: false,
-        error: 'Maximum interview limit reached (3 interviews per user)'
-      });
+    // Get user's plan
+    const userPlan = await UserPlan.findOne({ email: req.body.email });
+    const planType = userPlan?.plan || 'Free'; // Default to Free if no plan found
+
+    // Check interview limit based on plan
+    if (planType !== 'Enterprise') {
+      const interviewCount = await Interview.countDocuments({ creatorEmail: req.body.email });
+      const maxInterviews = planType === 'Pro' ? 15 : 3; // Pro: 15, Free: 3
+      
+      if (interviewCount >= maxInterviews) {
+        return res.status(400).json({
+          success: false,
+          error: `Maximum interview limit reached for ${planType} plan (${maxInterviews} interviews)`
+        });
+      }
     }
 
     // Create interview
@@ -42,8 +52,10 @@ export const createInterview = async (req, res) => {
       ...req.body,
       interviewLink,
       creatorEmail: req.body.email,
-      createdBy: req.body.userId,  // Add createdBy field
-      interviewDate: new Date(req.body.interviewDate)
+      createdBy: req.body.userId,
+      interviewDate: new Date(req.body.interviewDate),
+      customQuestions: req.body.customQuestions || [],
+      skills: req.body.skills || []
     });
 
     await interview.save();
@@ -58,6 +70,9 @@ export const createInterview = async (req, res) => {
         applicantName: interview.applicantName,
         companyName: interview.companyName,
         jobTitle: interview.jobTitle,
+        interviewType: interview.interviewType,
+        skills: interview.skills,
+        customQuestions: interview.customQuestions,
         interviewDate: interview.interviewDate,
         timeSlot: `${interview.startTime} - ${interview.endTime}`,
         status: interview.status
@@ -81,6 +96,7 @@ export const getInterviews = async (req, res) => {
       jobTitle, 
       applicantName, 
       companyName,
+      interviewType,
       sortBy = 'createdAt', 
       sortOrder = 'desc' 
     } = req.query;
@@ -98,6 +114,7 @@ export const getInterviews = async (req, res) => {
     if (jobTitle) filter.jobTitle = { $regex: jobTitle, $options: 'i' };
     if (applicantName) filter.applicantName = { $regex: applicantName, $options: 'i' };
     if (companyName) filter.companyName = { $regex: companyName, $options: 'i' };
+    if (interviewType) filter.interviewType = interviewType;
 
     // Set sort options
     const sort = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
@@ -105,7 +122,7 @@ export const getInterviews = async (req, res) => {
     // Fetch interviews
     const interviews = await Interview.find(filter)
       .sort(sort)
-      .lean(); // Using lean() for better performance
+      .lean();
 
     if (!interviews || interviews.length === 0) {
       return res.status(200).json({
@@ -143,23 +160,19 @@ export const validateInterviews = async (req, res) => {
 
     // Get current date and time
     const now = new Date();
-    const currentTime = now.toTimeString().substring(0, 5); // Gets "HH:MM" format
+    const currentTime = now.toTimeString().substring(0, 5);
 
     // Find interviews that should be expired
     const interviewsToExpire = await Interview.find({
       creatorEmail: email,
       status: 'not_started',
-      $or: [
-  // Case 1: Interview date is in the past
-  { interviewDate: { $lt: new Date(now.toISOString().split('T')[0]) } },
-
-  // Case 2: Interview date is today but end time has passed
-  { 
-    interviewDate: new Date(now.toISOString().split('T')[0]),
-    endTime: { $lt: currentTime }
-  }
-]
-
+       $or: [
+    { interviewDate: { $lt: new Date(now.toISOString().split('T')[0]) } },
+    { 
+      interviewDate: new Date(now.toISOString().split('T')[0]),
+      endTime: { $lt: currentTime }
+    }
+  ]
     });
 
     // Get IDs of interviews to expire
@@ -167,9 +180,7 @@ export const validateInterviews = async (req, res) => {
 
     // Update all matching interviews
     const result = await Interview.updateMany(
-      {
-        _id: { $in: interviewIds }
-      },
+      { _id: { $in: interviewIds } },
       { $set: { status: 'expired' } }
     );
 
@@ -275,6 +286,59 @@ export const verifyAccessToken = async (req, res) => {
     return res.status(500).json({
       success: false,
       error: 'Failed to verify access token'
+    });
+  }
+};
+
+export const updateInterviewStatus = async (req, res) => {
+  try {
+    const interview = await Interview.findOneAndUpdate(
+      { interviewLink: { $regex: req.params.id, $options: 'i' } },
+      { status: req.body.status },
+      { new: true }
+    );
+
+    if (!interview) {
+      return res.status(404).json({
+        success: false,
+        error: 'Interview not found'
+      });
+    }
+
+    res.status(200).json({ success: true, data: interview });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update status'
+    });
+  }
+};
+
+// Complete interview (updated)
+export const completeInterview = async (req, res) => {
+  try {
+    const interview = await Interview.findOneAndUpdate(
+      { interviewLink: { $regex: req.params.id, $options: 'i' } },
+      { 
+        status: 'completed',
+        score: req.body.score,
+        completedAt: new Date()
+      },
+      { new: true }
+    );
+
+    if (!interview) {
+      return res.status(404).json({
+        success: false,
+        error: 'Interview not found'
+      });
+    }
+
+    res.status(200).json({ success: true, data: interview });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to complete interview'
     });
   }
 };

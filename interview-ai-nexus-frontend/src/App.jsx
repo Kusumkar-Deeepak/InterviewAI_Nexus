@@ -1,3 +1,4 @@
+// App.js
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { useAuth0 } from '@auth0/auth0-react';
@@ -8,6 +9,7 @@ import Loading from './components/Loading';
 import InterviewAccess from './pages/InterviewAccess';
 import InterviewPermission from './pages/InterviewPermission';
 import InterviewScreen from './pages/InterviewScreen';
+import ProtectedInterviewRoute from './components/ProtectedInterviewRoute';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth0();
@@ -45,8 +47,22 @@ function App() {
             } 
           />
           <Route path="/interview/:interviewLink" element={<InterviewAccess />} />
-          <Route path="/interview/:interviewLink/permission" element={<InterviewPermission />} />
-          <Route path="/interview/:interviewLink/start" element={<InterviewScreen />} />
+          <Route 
+            path="/interview/:interviewLink/permission" 
+            element={
+              <ProtectedInterviewRoute>
+                <InterviewPermission />
+              </ProtectedInterviewRoute>
+            } 
+          />
+          <Route 
+            path="/interview/:interviewLink/start" 
+            element={
+              <ProtectedInterviewRoute>
+                <InterviewScreen />
+              </ProtectedInterviewRoute>
+            } 
+          />
         </Routes>
       </AnimatePresence>
     </div>

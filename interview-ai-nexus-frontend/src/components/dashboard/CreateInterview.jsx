@@ -16,12 +16,15 @@ const CreateInterview = () => {
     additionalNotes: '',
     interviewDate: '',
     startTime: '',
-    endTime: ''
+    endTime: '',
+    interviewType: 'basic'
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [interviewLink, setInterviewLink] = useState('');
+  const [customQuestions, setCustomQuestions] = useState('');
+  const [skills, setSkills] = useState('');
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -46,62 +49,68 @@ const CreateInterview = () => {
     }
   };
 
-  // CreateInterview.js
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setIsLoading(true);
-  setError('');
-  setSuccess('');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    setSuccess('');
 
-  try {
-    // Validate fields
-    if (!formData.applicantName || !formData.jobTitle || !formData.companyName || !formData.jobDescription || 
-        !formData.resumeText || !formData.interviewDate || !formData.startTime || !formData.endTime) {
-      throw new Error('All required fields must be filled');
+    try {
+      // Validate fields
+      if (!formData.applicantName || !formData.jobTitle || !formData.companyName || 
+          !formData.jobDescription || !formData.resumeText || !formData.interviewDate || 
+          !formData.startTime || !formData.endTime || !formData.interviewType || !skills) {
+        throw new Error('All required fields must be filled');
+      }
+
+      // Time validation
+      const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      if (!timeRegex.test(formData.startTime) || !timeRegex.test(formData.endTime)) {
+        throw new Error('Invalid time format. Use HH:MM');
+      }
+
+      const response = await axios.post('/api/interviews/', {
+        applicantName: formData.applicantName,
+        companyName: formData.companyName,
+        jobTitle: formData.jobTitle,
+        jobDescription: formData.jobDescription,
+        additionalNotes: formData.additionalNotes,
+        resumeText: formData.resumeText,
+        interviewDate: formData.interviewDate,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        email: user.email,
+        userId: user.sub,
+        customQuestions: customQuestions.split('\n').filter(q => q.trim()),
+        interviewType: formData.interviewType,
+        skills: skills.split(',').map(skill => skill.trim()),
+      });
+
+      setSuccess('Interview created successfully!');
+      setInterviewLink(response.data.data.interviewLink);
+      
+      // Reset form
+      setFormData({
+        applicantName: '',
+        companyName: '',
+        jobTitle: '',
+        jobDescription: '',
+        resume: null,
+        resumeText: '',
+        additionalNotes: '',
+        interviewDate: '',
+        startTime: '',
+        endTime: '',
+        interviewType: 'basic'
+      });
+      setCustomQuestions('');
+      setSkills('');
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Failed to create interview');
+    } finally {
+      setIsLoading(false);
     }
-
-    // Time validation
-    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    if (!timeRegex.test(formData.startTime) || !timeRegex.test(formData.endTime)) {
-      throw new Error('Invalid time format. Use HH:MM');
-    }
-
-    const response = await axios.post('/api/interviews/', {
-      applicantName: formData.applicantName,
-      companyName: formData.companyName,
-      jobTitle: formData.jobTitle,
-      jobDescription: formData.jobDescription,
-      additionalNotes: formData.additionalNotes,
-      resumeText: formData.resumeText,
-      interviewDate: formData.interviewDate,
-      startTime: formData.startTime,
-      endTime: formData.endTime,
-      email: user.email,
-      userId: user.sub // Make sure this is being sent
-    });
-
-    setSuccess('Interview created!');
-    setInterviewLink(response.data.data.interviewLink);
-    
-    // Reset form
-    setFormData({
-      applicantName: '',
-      companyName: '',
-      jobTitle: '',
-      jobDescription: '',
-      resume: null,
-      resumeText: '',
-      additionalNotes: '',
-      interviewDate: '',
-      startTime: '',
-      endTime: ''
-    });
-  } catch (err) {
-    setError(err.response?.data?.error || err.message || 'Failed to create interview');
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   return (
     <div className="bg-white shadow rounded-lg p-6 mb-8">
@@ -175,6 +184,23 @@ const handleSubmit = async (e) => {
               required
             />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Interview Difficulty Level <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="interviewType"
+              value={formData.interviewType}
+              onChange={handleInputChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              required
+            >
+              <option value="basic">Basic (0-5 LPA)</option>
+              <option value="intermediate">Intermediate (5-20 LPA)</option>
+              <option value="hard">Hard (20+ LPA)</option>
+            </select>
+          </div>
         </div>
 
         <div className="mb-6">
@@ -188,7 +214,43 @@ const handleSubmit = async (e) => {
             rows={4}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             required
+            placeholder="Describe the job responsibilities, requirements, and expectations"
           />
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6 mb-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Required Skills (comma separated) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={skills}
+              onChange={(e) => setSkills(e.target.value)}
+              placeholder="e.g., Java, Python, Communication, Leadership"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              required
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              For technical roles: list programming languages/frameworks. For non-technical: list relevant skills.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Custom Questions (one per line)
+            </label>
+            <textarea
+              value={customQuestions}
+              onChange={(e) => setCustomQuestions(e.target.value)}
+              rows={4}
+              placeholder="Enter your custom questions here, one per line\nExample:\nWhat is your experience with React?\nHow would you handle a difficult team member?"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              These questions will be prioritized during the AI interview.
+            </p>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 mb-6">
@@ -272,6 +334,9 @@ const handleSubmit = async (e) => {
               <span className="ml-3 text-sm text-gray-500">{formData.resume.name}</span>
             )}
           </div>
+          <p className="mt-1 text-sm text-gray-500">
+            The AI will analyze the resume content to tailor the interview questions.
+          </p>
         </div>
 
         <div className="mb-6">
@@ -284,17 +349,18 @@ const handleSubmit = async (e) => {
             onChange={handleInputChange}
             rows={2}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="Any special instructions for the AI interviewer"
           />
         </div>
 
         <button
           type="submit"
           disabled={isLoading}
-          className={`bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-6 rounded-lg font-medium transition-colors ${
+          className={`w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-8 rounded-lg font-medium transition-colors ${
             isLoading ? 'opacity-70 cursor-not-allowed' : ''
           }`}
         >
-          {isLoading ? 'Creating...' : 'Create Interview Link'}
+          {isLoading ? 'Creating Interview...' : 'Create Interview Link'}
         </button>
       </form>
     </div>

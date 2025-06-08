@@ -28,50 +28,10 @@ const ModalWrapper = ({ children, onClose }) => {
   );
 };
 
-export const FeaturesModal = ({ onClose }) => {
-  return (
-    <ModalWrapper onClose={onClose}>
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Key Features</h2>
-        <p className="text-gray-600">Discover what makes InterviewAI Nexus unique</p>
-      </div>
+import React from 'react'
 
-      <div className="grid md:grid-cols-2 gap-8">
-        {[
-          {
-            title: "AI-Powered Interviews",
-            description: "Our advanced AI conducts realistic interviews with natural language processing",
-            icon: "🤖"
-          },
-          {
-            title: "Real-Time Feedback",
-            description: "Get instant analysis on your responses, tone, and body language",
-            icon: "⏱️"
-          },
-          {
-            title: "Customizable Questions",
-            description: "Tailor interviews to specific job roles and industries",
-            icon: "🎯"
-          },
-          {
-            title: "Progress Tracking",
-            description: "Monitor your improvement over time with detailed analytics",
-            icon: "📊"
-          },
-        ].map((feature, index) => (
-          <div key={index} className="bg-gray-50 p-6 rounded-lg">
-            <div className="text-3xl mb-3">{feature.icon}</div>
-            <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-            <p className="text-gray-600">{feature.description}</p>
-          </div>
-        ))}
-      </div>
-    </ModalWrapper>
-  );
-};
-
-export const PricingModal = ({ onClose }) => {
-  const plans = [
+const PricingModal = ({ onClose }) => {
+   const plans = [
     {
       name: "Starter",
       price: "$0",
@@ -156,62 +116,6 @@ export const PricingModal = ({ onClose }) => {
       </div>
     </ModalWrapper>
   );
-};
+}
 
-export const ResourcesModal = ({ onClose }) => {
-  const resources = [
-    {
-      title: "Interview Preparation Guide",
-      type: "Guide",
-      description: "Comprehensive guide to acing any job interview",
-      link: "#"
-    },
-    {
-      title: "Common Interview Questions",
-      type: "Cheat Sheet",
-      description: "List of frequently asked questions by industry",
-      link: "#"
-    },
-    {
-      title: "Body Language Tips",
-      type: "Video",
-      description: "Master non-verbal communication for interviews",
-      link: "#"
-    },
-    {
-      title: "Salary Negotiation",
-      type: "E-book",
-      description: "Strategies to get the compensation you deserve",
-      link: "#"
-    }
-  ];
-
-  return (
-    <ModalWrapper onClose={onClose}>
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Helpful Resources</h2>
-        <p className="text-gray-600">Tools and materials to boost your interview skills</p>
-      </div>
-
-      <div className="space-y-6">
-        {resources.map((resource, index) => (
-          <div key={index} className="flex items-start p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-            <div className="bg-indigo-100 text-indigo-800 rounded-lg p-3 mr-4">
-              {resource.type === "Guide" && "📖"}
-              {resource.type === "Cheat Sheet" && "📋"}
-              {resource.type === "Video" && "🎬"}
-              {resource.type === "E-book" && "📚"}
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold">{resource.title}</h3>
-              <p className="text-gray-600 mb-2">{resource.description}</p>
-              <a href={resource.link} className="text-indigo-600 hover:text-indigo-800 font-medium">
-                View {resource.type.toLowerCase()} →
-              </a>
-            </div>
-          </div>
-        ))}
-      </div>
-    </ModalWrapper>
-  );
-};
+export default PricingModal;

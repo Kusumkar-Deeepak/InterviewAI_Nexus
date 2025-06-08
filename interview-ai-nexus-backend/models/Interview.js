@@ -30,6 +30,20 @@ const interviewSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  customQuestions: {
+    type: [String],
+    default: []
+  },
+  interviewType: {
+    type: String,
+    enum: ['basic', 'intermediate', 'hard'],
+    required: true,
+    default: 'basic'
+  },
+  skills: {
+    type: [String],
+    required: true
+  },
   interviewLink: {
     type: String,
     required: true,
