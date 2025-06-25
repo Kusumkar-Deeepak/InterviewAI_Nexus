@@ -7,7 +7,7 @@ import {
 const router = express.Router();
 
 // Interview records routes
-router.post('/interview-records', createInterviewRecord);
+router.post('/', createInterviewRecord);
 router.get('/interview-records/:interviewLink', getInterviewRecords);
 
 export default router;

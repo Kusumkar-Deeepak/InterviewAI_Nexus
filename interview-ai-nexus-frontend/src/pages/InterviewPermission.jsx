@@ -10,19 +10,17 @@ const InterviewPermission = () => {
   const [hasCamAccess, setHasCamAccess] = useState(false);
   const [hasMicAccess, setHasMicAccess] = useState(false);
 
+  // Check for devices
   const checkPermissions = async () => {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const hasCamera = devices.some(device => device.kind === 'videoinput');
       const hasMicrophone = devices.some(device => device.kind === 'audioinput');
-      
       setHasCamAccess(hasCamera);
       setHasMicAccess(hasMicrophone);
-      
       if (!hasCamera || !hasMicrophone) {
         throw new Error('Required devices not found');
       }
-      
       return true;
     } catch (err) {
       setError('Could not detect camera and/or microphone. Please ensure they are connected.');
@@ -31,23 +29,34 @@ const InterviewPermission = () => {
     }
   };
 
+  // Request permissions and handle errors
   const requestPermissions = async () => {
+    setError('');
     try {
       const devicesAvailable = await checkPermissions();
       if (!devicesAvailable) return;
 
+      // Try to get permissions
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true
       });
-      
+
       // Stop all tracks immediately (we'll request again in the interview)
       stream.getTracks().forEach(track => track.stop());
-      
+
       setPermissionGranted(true);
       setShowInstructions(true);
     } catch (err) {
-      setError('Could not access camera and microphone. Please enable permissions.');
+      let msg = 'Could not access camera and microphone. Please enable permissions.';
+      if (err && err.name === 'NotAllowedError') {
+        msg = 'Permission denied. Please allow camera and microphone access in your browser settings.';
+      } else if (err && err.name === 'NotFoundError') {
+        msg = 'No camera or microphone found. Please connect them and try again.';
+      } else if (err && err.message) {
+        msg = err.message;
+      }
+      setError(msg);
       console.error('Permission error:', err);
     }
   };
@@ -59,6 +68,7 @@ const InterviewPermission = () => {
 
   useEffect(() => {
     requestPermissions();
+    // eslint-disable-next-line
   }, []);
 
   return (
@@ -67,7 +77,6 @@ const InterviewPermission = () => {
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Interview Setup
         </h2>
-        
         {permissionGranted ? (
           <div className="mt-8 bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 text-center">
             <div className="text-green-600 mb-4">
@@ -88,7 +97,6 @@ const InterviewPermission = () => {
               <p className="mt-1 text-sm text-gray-500">
                 Please allow access to your camera and microphone to continue with the interview.
               </p>
-              
               <div className="mt-4 space-y-2 text-sm text-left">
                 {!hasCamAccess && (
                   <p className="text-red-500">⚠️ Camera not detected</p>
@@ -97,7 +105,6 @@ const InterviewPermission = () => {
                   <p className="text-red-500">⚠️ Microphone not detected</p>
                 )}
               </div>
-
               {error && (
                 <div className="mt-4 bg-red-50 border-l-4 border-red-400 p-4">
                   <div className="flex">
@@ -107,7 +114,6 @@ const InterviewPermission = () => {
                   </div>
                 </div>
               )}
-
               <div className="mt-6">
                 <button
                   onClick={requestPermissions}
@@ -120,7 +126,6 @@ const InterviewPermission = () => {
           </div>
         )}
       </div>
-
       {/* Instructions Modal */}
       {showInstructions && (
         <div className="fixed z-10 inset-0 overflow-y-auto">
@@ -238,3 +243,4 @@ const InterviewPermission = () => {
 };
 
 export default InterviewPermission;
+

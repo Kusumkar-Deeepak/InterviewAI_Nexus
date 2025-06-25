@@ -59,7 +59,9 @@ function App() {
             path="/interview/:interviewLink/start" 
             element={
               <ProtectedInterviewRoute>
-                <InterviewScreen />
+                <div className="bg-gray-900 h-screen">
+                  <InterviewScreen />
+                </div>
               </ProtectedInterviewRoute>
             } 
           />
