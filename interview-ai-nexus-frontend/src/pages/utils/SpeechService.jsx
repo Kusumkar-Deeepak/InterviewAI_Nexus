@@ -1,11 +1,12 @@
 export class SpeechService {
   constructor() {
     this.synth = window.speechSynthesis;
-    this.recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    this.recognition = new (window.SpeechRecognition ||
+      window.webkitSpeechRecognition)();
     this.recognition.continuous = true;
     this.recognition.interimResults = true;
     this.recognition.maxAlternatives = 1;
-    this.recognition.lang = 'en-IN';
+    this.recognition.lang = "en-IN";
   }
 
   async initializeVoices() {
@@ -25,17 +26,16 @@ export class SpeechService {
   getPreferredVoice() {
     const voices = this.synth.getVoices();
     const preferredVoices = [
-      { name: 'Microsoft Ravi - English (India)', lang: 'en-IN' },
-      { name: 'Google US English', lang: 'en-US' },
-      { name: 'Google UK English Female', lang: 'en-GB' },
-      { name: 'Microsoft David - English (United States)', lang: 'en-US' },
-      { name: 'Microsoft Zira - English (United States)', lang: 'en-US' }
+      { name: "Microsoft Ravi - English (India)", lang: "en-IN" },
+      { name: "Google US English", lang: "en-US" },
+      { name: "Google UK English Female", lang: "en-GB" },
+      { name: "Microsoft David - English (United States)", lang: "en-US" },
+      { name: "Microsoft Zira - English (United States)", lang: "en-US" },
     ];
 
     for (const preferred of preferredVoices) {
-      const voice = voices.find(v => 
-        v.name.includes(preferred.name) || 
-        v.lang === preferred.lang
+      const voice = voices.find(
+        (v) => v.name.includes(preferred.name) || v.lang === preferred.lang
       );
       if (voice) return voice;
     }
@@ -52,11 +52,11 @@ export class SpeechService {
       utterance.voice = this.getPreferredVoice();
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
-      utterance.lang = utterance.voice.lang || 'en-IN';
+      utterance.lang = utterance.voice.lang || "en-IN";
 
       utterance.onend = () => resolve();
       utterance.onerror = (err) => {
-        console.error('Speech error:', err);
+        console.error("Speech error:", err);
         resolve();
       };
 
@@ -64,50 +64,61 @@ export class SpeechService {
     });
   }
 
-  // Updated startListening method in SpeechService
-startListening(onResult, onError, onEnd) {
-  let finalTranscript = '';
-  let timeoutId = null;
-  const silenceTimeout = 15000; // 15 seconds of silence
+  startListening(onResult, onError, onEnd) {
+    let finalTranscript = "";
+    let timeoutId = null;
+    const silenceTimeout = 15000; // 15 seconds of silence
 
-  this.recognition.continuous = true;
-  this.recognition.interimResults = true;
+    this.recognition.continuous = true;
+    this.recognition.interimResults = true;
 
-  const resetTimeout = () => {
-    if (timeoutId) clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => {
-      this.recognition.stop();
-      onEnd && onEnd();
-    }, silenceTimeout);
-  };
+    const resetTimeout = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        this.recognition.stop();
+        onEnd && onEnd();
+      }, silenceTimeout);
+    };
 
-  this.recognition.onresult = (event) => {
-    resetTimeout();
-    let interimTranscript = '';
-    for (let i = event.resultIndex; i < event.results.length; ++i) {
-      const transcriptPiece = event.results[i][0].transcript;
-      if (event.results[i].isFinal) {
-        finalTranscript += transcriptPiece + ' ';
-      } else {
-        interimTranscript += transcriptPiece;
+    this.recognition.onresult = (event) => {
+      resetTimeout();
+      let interimTranscript = "";
+      let hasSpeech = false;
+
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript + " ";
+        } else {
+          interimTranscript += event.results[i][0].transcript;
+        }
+        if (event.results[i][0].confidence > 0.5) {
+          hasSpeech = true;
+        }
       }
-    }
-    onResult((finalTranscript + interimTranscript).trim(), interimTranscript === '');
-  };
 
-  this.recognition.onerror = (event) => {
-    if (timeoutId) clearTimeout(timeoutId);
-    onError && onError(event);
-  };
+      // Only update if we have speech with reasonable confidence
+      if (hasSpeech) {
+        onResult(
+          (finalTranscript + interimTranscript).trim(),
+          interimTranscript === ""
+        );
+      }
+    };
 
-  this.recognition.onend = () => {
-    if (timeoutId) clearTimeout(timeoutId);
-    onEnd && onEnd();
-  };
+    this.recognition.onerror = (event) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      onError && onError(event);
+    };
 
-  resetTimeout();
-  this.recognition.start();
-}
+    this.recognition.onend = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      onEnd && onEnd();
+    };
+
+    resetTimeout();
+    this.recognition.start();
+  }
+
   stopListening() {
     this.recognition.stop();
   }

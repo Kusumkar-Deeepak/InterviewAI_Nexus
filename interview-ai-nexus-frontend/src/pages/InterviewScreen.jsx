@@ -17,6 +17,7 @@ const InterviewScreen = () => {
   const timerRef = useRef(null);
   const finalTranscriptRef = useRef("");
   const noResponseTimerRef = useRef(null);
+  const silenceDetectionRef = useRef(null);
 
   // State
   const [stream, setStream] = useState(null);
@@ -34,19 +35,19 @@ const InterviewScreen = () => {
   const [isListening, setIsListening] = useState(false);
   const [loadingState, setLoadingState] = useState("Starting up...");
   const [questionRepeatCount, setQuestionRepeatCount] = useState(0);
-  const [activeTab, setActiveTab] = useState(true);
-  const [manualSubmitMode, setManualSubmitMode] = useState(false);
   const [answerRepeatCount, setAnswerRepeatCount] = useState(0);
+  const [manualSubmitMode, setManualSubmitMode] = useState(false);
 
-  // Auto-scroll text areas
+  // Auto-scroll text areas with invisible scrollbar
   useEffect(() => {
-    if (aiResponseRef.current) {
-      aiResponseRef.current.scrollTop = aiResponseRef.current.scrollHeight;
-    }
-    if (userTranscriptRef.current) {
-      userTranscriptRef.current.scrollTop =
-        userTranscriptRef.current.scrollHeight;
-    }
+    const scrollToBottom = (element) => {
+      if (element) {
+        element.scrollTop = element.scrollHeight;
+      }
+    };
+
+    scrollToBottom(aiResponseRef.current);
+    scrollToBottom(userTranscriptRef.current);
   }, [aiResponse, transcript]);
 
   // Load saved state
@@ -102,6 +103,7 @@ const InterviewScreen = () => {
       speechService.current?.cancelAll();
       clearInterval(timerRef.current);
       clearTimeout(noResponseTimerRef.current);
+      clearTimeout(silenceDetectionRef.current);
       saveState();
     };
   }, []);
@@ -126,77 +128,82 @@ const InterviewScreen = () => {
     localStorage.setItem("interviewSession", JSON.stringify(interviewSession));
   };
 
-  // Initialize interview flow
+  // Initialize interview flow with proper timing
   const initializeInterviewFlow = (data) => {
-    interviewFlow.current = [
-      // Extended welcome (1 minute)
-      {
-        key: "welcome",
-        prompt: `Good ${InterviewService.getTimeOfDay()}, ${
-          data.applicantName
-        }. Welcome to your interview with ${data.companyName} for the ${
-          data.jobTitle
-        } position. We're excited to learn more about you and your qualifications. Before we begin, please make sure you're in a quiet environment and ready to proceed. How are you feeling today?`,
-        action: "listen",
-        timeEstimate: 60,
-      },
-      {
-        key: "introduction",
-        prompt: `At ${
-          data.companyName
-        }, we're looking for someone who can ${data.jobDescription.substring(
-          0,
-          200
-        )}... Our ideal candidate would have skills in ${data.skills
-          .slice(0, 3)
-          .join(
-            ", "
-          )}. This interview will help us understand your experience and fit for this role.`,
-        action: "speak",
-        timeEstimate: 45,
-      },
-      {
-        key: "candidateIntroduction",
-        prompt:
-          "To begin, please introduce yourself and tell us about your professional background, focusing on experiences relevant to this position.",
-        action: "listen",
-        timeEstimate: 120,
-      },
-      // Dynamic questions will be added here
-      // Extended closing (1 minute)
-      {
-        key: "closing",
-        prompt: `Thank you ${
-          data.applicantName
-        }. We've reached the end of our interview. We appreciate the time you've taken to share your experiences with us today. Your insights about ${
-          questions.slice(-1)[0]?.answer?.substring(0, 50) || "your background"
-        } were particularly interesting. We'll review all candidates and be in touch within the next week. Do you have any final questions for us?`,
-        action: "listen",
-        timeEstimate: 60,
-      },
-      {
-        key: "finalGreeting",
-        prompt:
-          "Once again, thank you for your time and thoughtful responses. We wish you all the best and will be in contact soon. Have a great day!",
-        action: "complete",
-        timeEstimate: 20,
-      },
-    ];
+    const welcomeFlow = {
+      key: "welcome",
+      prompt: `Good ${InterviewService.getTimeOfDay()}, ${
+        data.applicantName
+      }. Welcome to your interview with ${data.companyName} for the ${
+        data.jobTitle
+      } position. We're excited to learn more about you and your qualifications. Before we begin, please make sure you're in a quiet environment and ready to proceed. How are you feeling today?`,
+      action: "listen",
+      timeEstimate: 60, // 1 minute for welcome
+    };
 
-    // Add dynamic questions based on remaining time (after subtracting welcome/closing time)
-    const timeForQuestions = Math.max(0, remainingTime - 245); // 245s = welcome + closing
+    const introductionFlow = {
+      key: "introduction",
+      prompt: `At ${
+        data.companyName
+      }, we're looking for someone who can ${data.jobDescription.substring(
+        0,
+        200
+      )}... Our ideal candidate would have skills in ${data.skills
+        .slice(0, 3)
+        .join(
+          ", "
+        )}. This interview will help us understand your experience and fit for this role.`,
+      action: "speak",
+      timeEstimate: 45,
+    };
+
+    const candidateIntroFlow = {
+      key: "candidateIntroduction",
+      prompt:
+        "To begin, please introduce yourself and tell us about your professional background, focusing on experiences relevant to this position.",
+      action: "listen",
+      timeEstimate: 120, // 2 minutes for introduction
+    };
+
+    const closingFlow = {
+      key: "closing",
+      prompt: `Thank you ${
+        data.applicantName
+      }. We've reached the end of our interview. We appreciate the time you've taken to share your experiences with us today. Your insights about ${
+        questions.slice(-1)[0]?.answer?.substring(0, 50) || "your background"
+      } were particularly interesting. We'll review all candidates and be in touch within the next week. Do you have any final questions for us?`,
+      action: "listen",
+      timeEstimate: 60, // 1 minute for closing
+    };
+
+    const finalGreetingFlow = {
+      key: "finalGreeting",
+      prompt:
+        "Once again, thank you for your time and thoughtful responses. We wish you all the best and will be in contact soon. Have a great day!",
+      action: "complete",
+      timeEstimate: 20,
+    };
+
+    // Calculate time for questions (total time minus welcome/closing time)
+    const fixedTime =
+      welcomeFlow.timeEstimate +
+      introductionFlow.timeEstimate +
+      candidateIntroFlow.timeEstimate +
+      closingFlow.timeEstimate +
+      finalGreetingFlow.timeEstimate;
+    const timeForQuestions = Math.max(0, remainingTime - fixedTime);
     const questionCount = Math.min(
       5,
       Math.max(1, Math.floor(timeForQuestions / 90))
-    ); // 90s per question
+    );
 
+    // Generate dynamic questions
+    const dynamicQuestions = [];
     if (questionCount > 0) {
       const questionTypes = ["technical", "behavioural", "situational"];
-      const questionsToAdd = [];
-
       for (let i = 0; i < questionCount; i++) {
         const type = questionTypes[i % questionTypes.length];
-        questionsToAdd.push({
+        dynamicQuestions.push({
           key: `${type}_${i}`,
           prompt: `As a ${data.jobTitle}, ${
             type === "technical"
@@ -208,13 +215,23 @@ const InterviewScreen = () => {
               : "imagine a situation where... how would you respond?"
           }`,
           action: "listen",
-          timeEstimate: 90,
+          timeEstimate: Math.min(
+            90,
+            Math.floor(timeForQuestions / questionCount)
+          ),
         });
       }
-
-      // Insert questions before closing
-      interviewFlow.current.splice(-2, 0, ...questionsToAdd);
     }
+
+    // Build the complete flow
+    interviewFlow.current = [
+      welcomeFlow,
+      introductionFlow,
+      candidateIntroFlow,
+      ...dynamicQuestions,
+      closingFlow,
+      finalGreetingFlow,
+    ];
   };
 
   const processCandidateResponse = async (responseText) => {
@@ -275,9 +292,19 @@ const InterviewScreen = () => {
     setTranscript("");
     finalTranscriptRef.current = "";
     setIsListening(true);
+
+    // Reset silence detection
+    clearTimeout(silenceDetectionRef.current);
+    silenceDetectionRef.current = setTimeout(() => {
+      if (isListening) {
+        handleNoResponse();
+      }
+    }, 15000);
+
     speechService.current.startListening(
       (transcript, isFinal) => {
         if (isFinal) {
+          clearTimeout(silenceDetectionRef.current);
           finalTranscriptRef.current = transcript;
         }
         setTranscript(transcript);
@@ -290,6 +317,32 @@ const InterviewScreen = () => {
         setIsListening(false);
       }
     );
+  };
+
+  const handleNoResponse = async () => {
+    const newQuestion = {
+      question: aiResponse,
+      answer: "[No response]",
+      score: 0,
+      timestamp: new Date().toISOString(),
+    };
+
+    setQuestions((prev) => [...prev, newQuestion]);
+    storeInterviewData(aiResponse, "[No response]", 0);
+
+    await speechService.current.speak(
+      "You haven't responded in 15 seconds. Moving to the next question."
+    );
+
+    speechService.current.stopListening();
+    setIsListening(false);
+
+    const nextIndex = currentFlowIndex + 1;
+    if (nextIndex < interviewFlow.current.length) {
+      setCurrentFlowIndex(nextIndex);
+    } else {
+      await completeInterview();
+    }
   };
 
   const handleInterviewFlow = async () => {
@@ -318,63 +371,65 @@ const InterviewScreen = () => {
       await speechService.current.speak(prompt);
       setIsSpeaking(false);
 
-      // Clear any existing timeout
-      clearTimeout(noResponseTimerRef.current);
-
-      // Start no-response timeout after AI finishes speaking
-      noResponseTimerRef.current = setTimeout(async () => {
-        if (!isListening) return;
-
-        const newQuestion = {
-          question: prompt,
-          answer: "[No response]",
-          score: 0,
-          timestamp: new Date().toISOString(),
-        };
-
-        setQuestions((prev) => [...prev, newQuestion]);
-        storeInterviewData(prompt, "[No response]", 0);
-
-        await speechService.current.speak(
-          "You haven't responded in 15 seconds. Moving to the next question."
-        );
-
-        speechService.current.stopListening();
-        setIsListening(false);
-
-        const nextIndex = currentFlowIndex + 1;
-        if (nextIndex < interviewFlow.current.length) {
-          setCurrentFlowIndex(nextIndex);
-        } else {
-          await completeInterview();
-        }
-      }, 15000);
-
-      // Start listening
       setIsListening(true);
       setManualSubmitMode(true);
+      setError("");
+      setTranscript("");
+      finalTranscriptRef.current = "";
 
+      let userStartedSpeaking = false;
+
+      // Ensure clean slate for speech recognition
+      speechService.current.stopListening();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Start listening
       speechService.current.startListening(
         (transcript, isFinal) => {
-          if (isFinal) {
-            clearTimeout(noResponseTimerRef.current);
-            finalTranscriptRef.current = transcript;
-          }
           setTranscript(transcript);
+
+          // If user starts speaking, reset the silence timer
+          if (transcript && transcript.trim().length > 0) {
+            userStartedSpeaking = true;
+            clearTimeout(silenceDetectionRef.current);
+            silenceDetectionRef.current = setTimeout(() => {
+              if (isListening) {
+                handleNoResponse();
+              }
+            }, 15000);
+          }
+
+          if (isFinal) {
+            clearTimeout(silenceDetectionRef.current);
+            finalTranscriptRef.current = transcript;
+            if (transcript.trim().length >= 5) {
+              setIsListening(false);
+              speechService.current.stopListening();
+            }
+          }
         },
         (event) => {
-          clearTimeout(noResponseTimerRef.current);
-          console.error("Recognition error:", event.error);
+          clearTimeout(silenceDetectionRef.current);
           setIsListening(false);
           if (event.error === "no-speech") {
             setError("No speech detected. Please try again.");
+          } else {
+            setError("Speech recognition error. Please try again.");
           }
         },
         () => {
-          clearTimeout(noResponseTimerRef.current);
+          clearTimeout(silenceDetectionRef.current);
           setIsListening(false);
         }
       );
+
+      // Start initial silence timer
+      clearTimeout(silenceDetectionRef.current);
+      silenceDetectionRef.current = setTimeout(() => {
+        if (isListening && !userStartedSpeaking) {
+          handleNoResponse();
+        }
+      }, 15000);
     } else if (currentFlow.action === "complete") {
       await completeInterview();
     }
@@ -400,10 +455,19 @@ const InterviewScreen = () => {
     setTranscript("");
     finalTranscriptRef.current = "";
 
+    // Reset silence detection
+    clearTimeout(silenceDetectionRef.current);
+    silenceDetectionRef.current = setTimeout(() => {
+      if (isListening) {
+        handleNoResponse();
+      }
+    }, 15000);
+
     setTimeout(() => {
       speechService.current.startListening(
         (transcript, isFinal) => {
           if (isFinal) {
+            clearTimeout(silenceDetectionRef.current);
             finalTranscriptRef.current = transcript;
           }
           setTranscript(transcript);
@@ -451,6 +515,13 @@ const InterviewScreen = () => {
       setAiResponse("Interview completed. Thank you for your time!");
       setError("Your responses have been saved locally.");
     }
+  };
+
+  const handleLeaveInterview = () => {
+    if (interviewStatus === "in_progress") {
+      saveState();
+    }
+    navigate("/");
   };
 
   // Initialize interview
@@ -537,6 +608,7 @@ const InterviewScreen = () => {
       speechService.current?.cancelAll();
       clearInterval(timerRef.current);
       clearTimeout(noResponseTimerRef.current);
+      clearTimeout(silenceDetectionRef.current);
     };
   }, []);
 
@@ -575,8 +647,7 @@ const InterviewScreen = () => {
         <div className="bg-gray-800 p-2 text-xs text-gray-400">
           Status: {interviewStatus} | Flow: {currentFlowIndex}/
           {interviewFlow.current.length} | Listening: {isListening.toString()} |
-          Speaking: {isSpeaking.toString()} | Active Tab: {activeTab.toString()}{" "}
-          | Saved Qs: {questions.length}
+          Speaking: {isSpeaking.toString()} | Saved Qs: {questions.length}
         </div>
       )}
 
@@ -629,6 +700,7 @@ const InterviewScreen = () => {
 
       <main className="flex-1 flex flex-col lg:flex-row p-4 gap-4 overflow-hidden">
         {/* AI Interviewer Panel */}
+        {/* AI Interviewer Panel */}
         <div className="flex-1 bg-gray-800 rounded-xl overflow-hidden flex flex-col border border-gray-700">
           <div className="bg-gray-700 p-3 border-b border-gray-600 flex justify-between items-center">
             <h2 className="font-medium">AI Interviewer</h2>
@@ -643,10 +715,10 @@ const InterviewScreen = () => {
               </span>
             </div>
           </div>
-          <div className="flex-1 flex flex-col items-center justify-center p-6">
-            <div className="w-40 h-40 bg-gray-700 rounded-full mx-auto mb-6 flex items-center justify-center border-2 border-blue-500">
+          <div className="flex-1 flex flex-col p-4">
+            <div className="w-32 h-32 bg-gray-700 rounded-full mx-auto mb-4 flex items-center justify-center border-2 border-blue-500">
               <svg
-                className="w-20 h-20 text-blue-400"
+                className="w-16 h-16 text-blue-400"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -657,46 +729,49 @@ const InterviewScreen = () => {
                 />
               </svg>
             </div>
-            <div className="max-w-lg w-full">
+
+            {/* AI Response Container */}
+            <div className="flex-1 flex flex-col justify-between">
               <div
                 ref={aiResponseRef}
-                className="text-lg mb-6 max-h-40 overflow-y-auto p-2 bg-gray-700 rounded-lg"
+                className="text-lg mb-4 max-h-32 overflow-y-auto bg-gray-700 rounded-lg p-3 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"
               >
                 {error || aiResponse || "Preparing your interview..."}
               </div>
+
+              {/* Buttons Container - Always visible during listening */}
               {isListening && (
                 <div className="flex flex-wrap justify-center gap-2 mt-4">
                   <button
                     onClick={repeatQuestion}
                     disabled={questionRepeatCount >= 2}
-                    className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-md disabled:opacity-50"
+                    className="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-md disabled:opacity-50 text-sm"
                   >
-                    Repeat Question ({2 - questionRepeatCount} left)
+                    Repeat ({2 - questionRepeatCount})
                   </button>
                   <button
                     onClick={handleManualSubmit}
                     disabled={!transcript.trim()}
-                    className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-md disabled:opacity-50"
+                    className="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-md disabled:opacity-50 text-sm"
                   >
-                    Submit Answer
+                    Submit
                   </button>
                   <button
                     onClick={repeatAnswer}
                     disabled={answerRepeatCount >= 1 || !transcript.trim()}
-                    className="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-md disabled:opacity-50"
+                    className="bg-yellow-600 hover:bg-yellow-700 px-3 py-1.5 rounded-md disabled:opacity-50 text-sm"
                   >
-                    Repeat Answer (1 left)
+                    Retry (1)
                   </button>
                 </div>
               )}
+
               {interviewStatus === "completed" && (
-                <div className="mb-6 p-4 bg-gray-700 rounded-lg">
-                  <h3 className="text-xl font-bold text-green-500 mb-2">
+                <div className="p-3 bg-gray-700 rounded-lg">
+                  <h3 className="text-lg font-bold text-green-500 mb-1">
                     Interview Complete
                   </h3>
-                  <p className="text-sm mt-2">
-                    Thank you for your time! Your responses have been saved.
-                  </p>
+                  <p className="text-xs">Thank you for your time!</p>
                 </div>
               )}
             </div>
@@ -742,39 +817,23 @@ const InterviewScreen = () => {
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute top-4 left-0 right-0 p-4">
-                  <div className="bg-black bg-opacity-70 p-3 rounded-lg max-w-md mx-auto">
+                  <div className="bg-black bg-opacity-70 p-2 rounded-lg max-w-md mx-auto">
                     <div
                       ref={userTranscriptRef}
-                      className="text-white text-sm min-h-6 max-h-20 overflow-y-auto"
+                      className="text-white text-sm min-h-6 max-h-16 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
                     >
                       {isListening
                         ? transcript || "Listening... Speak now..."
                         : "Waiting for question..."}
                     </div>
                     {isListening && (
-                      <div className="flex justify-center mt-2">
-                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-2"></div>
+                      <div className="flex justify-center mt-1">
+                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse mr-1"></div>
                         <div className="text-xs text-red-400">LISTENING</div>
                       </div>
                     )}
                   </div>
                 </div>
-                {interviewStatus === "completed" && (
-                  <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center">
-                    <div className="bg-gray-800 p-6 rounded-lg max-w-md text-center">
-                      <h3 className="text-xl font-bold text-green-500 mb-2">
-                        Interview Complete
-                      </h3>
-                      <p className="mb-4">Thank you for your time!</p>
-                      <button
-                        onClick={handleLeaveInterview}
-                        className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-md"
-                      >
-                        Exit Interview
-                      </button>
-                    </div>
-                  </div>
-                )}
               </>
             )}
           </div>

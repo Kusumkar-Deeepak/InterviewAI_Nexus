@@ -27,34 +27,12 @@ export class InterviewService {
     }
   }
 
-  async generateAIQuestion(type, interviewData) {
-    const systemPrompt = `
-You are an expert AI interviewer conducting a job interview for ${
-      interviewData.companyName
-    }.
-The candidate is applying for a ${interviewData.jobTitle} position.
-Skills required: ${interviewData.skills.join(", ")}
-Job description: ${interviewData.jobDescription.substring(0, 200)}...
-
-Generate one ${type} interview question that is:
-1. Relevant to the position
-2. Clear and concise
-3. Open-ended to encourage detailed response
-4. Professional in tone
-
-Return ONLY the question text, nothing else.
-`;
-
+  async completeInterview(interviewData) {
     try {
-      const result = await this.model.generateContent(systemPrompt);
-      const response = await result.response;
-      const text = response.text();
-      return text.split("\n")[0].trim();
+      await axios.post(`/api/interviews/complete`, interviewData);
     } catch (error) {
-      console.error("Error generating question:", error);
-      return `Tell me about your experience with ${
-        interviewData.skills[0] || "this role"
-      }`;
+      console.error("Error completing interview:", error);
+      throw error;
     }
   }
 
