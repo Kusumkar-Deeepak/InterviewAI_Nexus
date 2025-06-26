@@ -8,3 +8,30 @@ body {
   font-family: "Poppins", sans-serif;
   @apply bg-light text-dark;
 }
+
+/* Custom scrollbar for AI response */
+.ai-response-container {
+  max-height: 150px;
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+}
+
+.ai-response-container::-webkit-scrollbar {
+  width: 0; /* Chrome/Safari */
+}
+
+/* Button container styles */
+.button-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+/* Interview panel sizing */
+.interview-panel {
+  min-height: 0; /* Allows proper flexbox sizing */
+  display: flex;
+  flex-direction: column;
+}
