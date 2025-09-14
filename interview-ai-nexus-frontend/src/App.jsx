@@ -8,8 +8,10 @@ import Dashboard from "./pages/Dashboard";
 import Loading from "./components/Loading";
 import InterviewAccess from "./pages/InterviewAccess";
 import InterviewPermission from "./pages/InterviewPermission";
-import InterviewScreen from "./pages/InterviewScreen";
+import InterviewScreenNew from "./pages/InterviewScreenNew";
 import ProtectedInterviewRoute from "./components/ProtectedInterviewRoute";
+import InterviewDetails from "./components/dashboard/InterviewDetails";
+import TestQuestionBank from "./pages/TestQuestionBank";
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth0();
@@ -31,7 +33,9 @@ function App() {
 
   // Show Navbar only on / and /dashboard routes
   const showNavbar =
-    location.pathname === "/" || location.pathname === "/dashboard";
+    location.pathname === "/" ||
+    location.pathname === "/dashboard" ||
+    location.pathname === "/preparation-guide";
 
   return (
     <div className="min-h-screen bg-white">
@@ -44,6 +48,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/interviews/:id"
+            element={
+              <ProtectedRoute>
+                <InterviewDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/preparation-guide"
+            element={
+              <ProtectedRoute>
+                <TestQuestionBank />
               </ProtectedRoute>
             }
           />
@@ -64,7 +84,7 @@ function App() {
             element={
               <ProtectedInterviewRoute>
                 <div className="bg-gray-900 h-screen">
-                  <InterviewScreen />
+                  <InterviewScreenNew />
                 </div>
               </ProtectedInterviewRoute>
             }

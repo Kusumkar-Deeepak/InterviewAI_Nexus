@@ -1,98 +1,104 @@
-import mongoose from 'mongoose';
-import { nanoid } from 'nanoid';
-import crypto from 'crypto';
+import mongoose from "mongoose";
+import { nanoid } from "nanoid";
+import crypto from "crypto";
 
 const interviewSchema = new mongoose.Schema({
   applicantName: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
   },
   companyName: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
   },
   jobTitle: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
   },
   jobDescription: {
     type: String,
-    required: true
+    required: true,
   },
   resumeText: {
     type: String,
-    required: true
+    required: true,
   },
   additionalNotes: {
     type: String,
-    default: ''
-  },
-  customQuestions: {
-    type: [String],
-    default: []
+    default: "",
   },
   interviewType: {
     type: String,
-    enum: ['basic', 'intermediate', 'hard'],
+    enum: ["basic", "intermediate", "hard"],
     required: true,
-    default: 'basic'
+    default: "basic",
   },
   skills: {
     type: [String],
-    required: true
+    required: true,
   },
   interviewLink: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
   },
   accessToken: {
     type: String,
     required: true,
     unique: true,
-    default: () => crypto.randomBytes(32).toString('hex') + nanoid(32)
+    default: () => crypto.randomBytes(32).toString("hex") + nanoid(32),
   },
   interviewDate: {
     type: Date,
-    required: true
+    required: true,
   },
   startTime: {
     type: String,
-    required: true
+    required: true,
   },
   endTime: {
     type: String,
-    required: true
+    required: true,
   },
   status: {
     type: String,
-    enum: ['not_started', 'in_progress', 'completed', 'expired'],
-    default: 'not_started'
+    enum: ["not_started", "in_progress", "completed", "expired"],
+    default: "not_started",
+  },
+  aiGeneratedQuestions: {
+    type: [String],
+    default: [],
+    required: true,
+  },
+  customQuestions: {
+    type: [String],
+    default: [],
+    required: true,
   },
   score: {
     type: Number,
     min: 0,
     max: 100,
-    default: 0
+    default: 0,
   },
   createdBy: {
     type: String,
-    ref: 'User',
-    required: true
+    ref: "User",
+    required: true,
   },
   creatorEmail: {
     type: String,
     required: true,
     trim: true,
-    lowercase: true
+    lowercase: true,
   },
   createdAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
 // Indexes
@@ -100,4 +106,4 @@ interviewSchema.index({ creatorEmail: 1, status: 1 });
 interviewSchema.index({ interviewDate: 1 });
 interviewSchema.index({ accessToken: 1 }, { unique: true });
 
-export default mongoose.model('Interview', interviewSchema);
+export default mongoose.model("Interview", interviewSchema);
